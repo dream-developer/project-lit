@@ -1,0 +1,1958 @@
+
+『Web Components開発ライブラリLit最速の入門書』
+※ 書籍名は予定です。変わる場合もあり。
+※ 2023年5月頃予定。
+のサンプルコードです。
+
+全てのコードは載せてません。
+（ 説明用や短いコード等はアップしてません ）
+
+行頭の「#」で階層分けしてます。　
+マークダウンでアウトライン表示にすると移動しやすいかと思います。
+
+
+# 第１章　前知識
+
+## シャドウDOM
+
+### ●Element.shadowRoot
+
+// 【下記はコードのイメージです】
+// ドキュメントRootから要素を取得
+const elem = document.querySelector('セレクター');
+// ドキュメントRootからNodeListを取得
+const nlist = document.querySelectorAll('セレクター')
+// シャドウRootから要素を取得(シャドウ要素)
+const selem = this.shadowRoot.querySelector('セレクター');
+// シャドウRootからNodeListを取得(シャドウのNodeList)
+const snlist = this.shadowRoot.querySelectorAll('セレクター')
+
+### ●CSSスタイルのスコープ
+
+#### my-element.ts
+
+import {html, LitElement} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    return html`<p>my-element内のシャドウDOM</p>`;
+  }
+}
+
+#### index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <script type="module" src="./my-element.js"></script>
+  <style> /* 1 */
+    p { color: blue }
+  </style>
+</head>
+<body>
+  <my-element></my-element> <!-- 2 -->
+  <p>index.htmlのDOM</p> <!-- 3 -->
+</body>
+</html>
+
+
+## シャドウDOMのclosedモード
+
+### ●外部からopenモードにアクセス
+
+#### my-element.ts
+
+import {html, LitElement} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    return html`
+        <p id="selem">my-element内のシャドウDOM</p>
+     `;
+  }
+}
+
+#### index.html
+
+<!DOCTYPE html>
+<head>
+  <script type="module" src="./my-element.js"></script>
+</head>
+<body>
+  <my-element></my-element>
+  <button onclick="onClick()">検証用</button>
+</body>
+<script>
+function onClick(){
+  const myelement = document.querySelector("my-element");
+  if(myelement){ // 1
+    alert(myelement);
+  } else { return; }
+
+  if(myelement.shadowRoot){ // 2
+    alert(myelement.shadowRoot);
+  } else { return; }
+  
+  if(myelement.shadowRoot.querySelector('#selem')){ // 3
+    alert(myelement.shadowRoot.querySelector('#selem'));
+  } else { return; }
+}
+</script>
+
+### ●外部からclosedモードにアクセス
+
+#### my-element.ts
+
+import {html, LitElement} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  // closedモード
+  static shadowRootOptions: ShadowRootInit = {mode: 'closed'};
+  render() {
+    return html`
+        <p id="selem">my-element内のシャドウDOM</p>
+     `;
+  }
+}
+
+### ●内部からopenモードにアクセス
+
+#### my-element.ts
+
+import {html, LitElement} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  // closedモード
+  // static shadowRootOptions: ShadowRootInit = {mode: 'closed'};
+  render() {
+    return html`
+        <p id="selem">my-element内のシャドウDOM</p>
+        <button @click=${this.onClickInner}>検証用(内部)</button>
+     `;
+  }
+  
+  private onClickInner(){
+    if(this){ // 1
+      alert(this);
+    } else { return; }
+
+    if(this.shadowRoot){ // 2
+      alert(this.shadowRoot);
+    } else { return; }
+  
+    if(this.shadowRoot.querySelector('#selem')){ // 3
+      alert(this.shadowRoot.querySelector('#selem'));
+    } else { return; }    
+  }
+}
+
+### ●内部からclosedモードにアクセス
+
+#### my-element.ts
+
+import {html, LitElement} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  // closedモード
+  static shadowRootOptions: ShadowRootInit = {mode: 'closed'};
+  render() {
+    return html`
+        <p id="selem">my-element内のシャドウDOM</p>
+        <button @click=${this.onClickInner}>検証用(内部)</button>
+     `;
+  }
+  
+  private onClickInner(){
+    if(this){ // 1
+      alert(this);
+    } else { return; }
+
+    if(this.shadowRoot){ // 2
+      alert(this.shadowRoot);
+    } else { return; }
+  
+    if(this.shadowRoot.querySelector('#selem')){ // 3
+      alert(this.shadowRoot.querySelector('#selem'));
+    } else { return; }    
+  }
+}
+
+## 本書の index.html について
+
+#### index.html（ Playground の場合 ）
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <script type="module" src="./my-element.js"></script>
+</head>
+<body>
+  <my-element></my-element>
+</body>
+</html>
+
+#### index.html（ Vite の場合 ）
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+<body>
+  <my-element></my-element>
+</body>
+</html>
+
+# 第３章　テンプレート
+
+## スタイル
+
+### ●styles
+
+import {LitElement, html, css} from 'lit'; // 1
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  // 2
+  static styles = css`
+    p { color: blue; }
+  `;
+  render() {
+    return html`<p>青文字</p>`;
+  }
+}
+
+## タグ付きテンプレートリテラル
+
+### ●タグ付きテンプレートリテラル
+
+function truncString(strings: TemplateStringsArray, str: string = "") {
+  const trstr = str.length > 10 ? str.substr(0,10) + '…' : str
+  return `${strings[0]}${trstr}${strings[1]}`;
+}
+
+const recom = "特性チャーシュー味噌ラーメン";
+const res = truncString`本日のおすすめは「${recom}」です`;
+console.log(res); // 本日のおすすめは「特性チャーシュー味噌…」です
+
+## テンプレートの分岐
+
+### ●条件分岐
+
+#### if文岐
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  private score = 90;
+  render() {
+    if (this.score >= 80) {
+      return html`<p>おめでとうございます</p><button>合格通知依頼をする</button>`;
+    } else {
+      return html`<p>次回頑張りましょう</p><a href="http://example.com">来年の受験案内</a>`;
+    }
+  }
+}
+
+#### ・三項演算子
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  private isLogined = true;
+  render() {
+    const mybutton = this.isLogined
+      ? html`<button>ログアウトする</button>`
+      : html`<button>ログインする</button>`;
+    
+    return html`${mybutton}<div>TOPページ</div>`;
+  }
+}
+
+### ●関数を埋め込む
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  private price1 = 50;
+  private price2 = 40;
+  private price3 = 60;
+
+  totalPrice() {
+    return this.price1 + this.price2 + this.price3;
+  }
+
+  render() {
+    return html`<p>合計: ${this.totalPrice()}円</p>`;
+  }
+}
+
+## nothing
+
+### ●タグのレンダリング
+
+import {LitElement, html, nothing} from 'lit'; // 1
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    const itemsA = ['商品１', '商品２', '商品３'];
+    const itemsB = [];
+    const itemsC = [];
+    const itemsD = [];
+    // 2
+    const buttonA = html`${ itemsA.length ? html`<button>画面Aへ</button>` : nothing }`;
+    const buttonB = html`${ itemsB.length ? html`<button>画面Bへ</button>` : nothing }`;
+    const buttonC = html`${ itemsC.length ? html`<button>画面Cへ</button>` : nothing }`;
+    const buttonD = html`${ itemsD.length ? html`<button>画面Dへ</button>` : nothing }`;
+    return html`
+      ${buttonA}
+      ${buttonB}
+      ${buttonC}
+      ${buttonD}
+    `;
+  }
+}
+
+### ●属性のレンダリング
+
+import {LitElement, html, nothing} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    const target1 = '_blank';
+    const target2 = undefined;
+    const target3 = null;
+    const target4 = '';
+    return html`
+      <p>nothingを使わない</p>
+      <a target="${target1 || undefined}" href="http://example.com">リンク１</a><br>
+      <a target="${target2 || undefined}" href="http://example.com">リンク２</a><br>
+      <a target="${target3 || null}" href="http://example.com">リンク３</a><br>
+      <a target="${target4 || ''}" href="http://example.com">リンク４</a><br>
+      <p>nothingを使う</p>
+      <a target="${target1 || nothing}" href="http://example.com">リンク１</a><br>
+      <a target="${target2 || nothing}" href="http://example.com">リンク２</a><br>
+      <a target="${target3 || nothing}" href="http://example.com">リンク３</a><br>
+      <a target="${target4 || nothing}" href="http://example.com">リンク４</a><br>
+    `;
+  }
+}
+
+
+## テンプレートの配列の展開
+
+### ●テンプレートの配列の展開
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    const templates = [
+      html`<p>その１</p>`,
+      html`<p>その２</p>`,
+      html`<p>その３</p>`
+    ];
+
+    return html`
+      <div>
+        ${templates}
+      </div>
+    `;
+  }
+}
+
+### ●応用
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    const templates = []; // 1
+    let isBlue = false; // 2
+    const messages = ['メッセージ１', 'メッセージ２', 'メッセージ３', 'メッセージ４']; // 3
+    
+    for (const message of messages) { // 4
+      templates.push(html`<p style="color: ${isBlue ? 'blue' : 'black'}">${message}</p>`); // 5
+      isBlue = !isBlue; // 6
+    }
+
+    return html`
+      <div>
+        ${templates}
+      </div>
+    `;
+  }
+}
+
+### オブジェクトの配列をtableタグ内に展開する例
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+function fetchData() { // 1
+  const datas =
+      [
+        {id: 100001, name: 'ユーザー１'},
+        {id: 100002, name: 'ユーザー２'},
+        {id: 100003, name: 'ユーザー３'}
+      ];
+  return datas;
+}
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    const templates = []; // 2
+    const users = fetchData(); // 3
+    for (const user of users) { // 4
+      templates.push(html`<tr><td>${user.id}</td><td>${user.name}</td></tr>`); // 5
+    }
+    return html`
+      <table border> <!-- 6 -->
+        ${templates}
+      </table>
+    `;
+  }
+}
+
+## 属性
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {  
+  pdfPath = 'pdf'
+  pdfFile = 'test.pdf'
+  isDisabled = false
+      
+  render() {
+    return html`
+      【A】<input value=${this.add(10, 20) + 30}><br>
+      【B】<input value="${this.add(10, 20) + 30}"><br>
+      【C】<a href="http://example.com/${this.pdfPath}/${this.pdfFile}">test.pdf</a><br>
+      【D】<input type="text" ?disabled=${!this.isDisabled}>
+    `;
+  }
+  
+  private add(a = 0,b = 0) {
+    return a + b;
+  }
+}
+
+## JavaScriptのオブジェクトのプロパティ
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  message = 'メッセージ'; 
+  
+  render() {
+    return html`       
+      【A】<input value=${this.message}><br>
+      【B】<input .value=${this.message}>
+       <hr>
+      【A】<textarea>${this.message}</textarea><br>
+      【B】<textarea value=${this.message}></textarea><br>
+      【C】<textarea .value=${this.message}></textarea><br>        
+
+      <textarea id="textareaId"></textarea>  <!-- 1 --> 
+      <button @click=${this.setMessage}>ボタン</button>        
+    `;
+  }
+  
+  private setMessage() { // 2
+    (this.renderRoot.querySelector('#textareaId') as HTMLInputElement).value = this.message;
+  }  
+}
+
+
+# 第４章　リアクティブ
+
+## @propertyと@state
+
+### ●@propertyと@state
+
+#### index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"><!-- 今回は charset の指定-->
+  <!--  Playground の場合
+  <script type="module" src="./my-element.js"></script>
+  -->
+  <!-- Viteの場合　/src 配下、かつ .ts になる -->
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+<body>
+  <my-element
+    text1="配置元から渡した値"
+    text2="配置元から渡した値"
+    _text3="配置元から渡した値"
+  >
+  </my-element>
+  <button onclick="onClick()">検証用</button>
+  <!-- index.html側の関数 -->
+  <script>
+    function onClick(){
+      const element = document.querySelector("my-element");
+      element._text3="配置元からの更新";
+    }
+  </script>
+</body>
+</html>
+
+#### my-element.ts
+
+import {LitElement, html} from 'lit';
+import {customElement, property, state} from 'lit/decorators.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {  
+  @property()
+  text1 = 'text1のデフォルト'; // 2
+  
+  @property({state: true})
+  text2 = 'text2のデフォルト'; // 3
+  
+  @state()
+  private _text3 = '_text3のデフォルト'; // 4
+  
+  render() {
+    return html`
+      <p>text1: ${this.text1}</p>
+      <p>text2: ${this.text2}</p>
+      <p>_text3: ${this._text3}</p>
+      <button @click=${this.updateText}>更新</button>
+    `;
+  }
+  
+  private updateText() { // 5
+     this.text1 = 'text1を更新';
+     this.text2 = 'text2を更新';
+     this._text3 = '_text3を更新';
+  }
+}
+
+
+## オプション type
+
+### index.html
+
+<html lang="ja">
+<head>
+  <!--  Playground の場合
+  <script type="module" src="./my-element.js"></script>
+  -->
+  <!-- Viteの場合　/src 配下、かつ .ts になる -->
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+<body>
+  <my-element
+    num1="10"
+    num2=10
+    num3=10
+  >
+  </my-element>
+</body>
+</html>
+
+### my-element.ts
+
+import {LitElement, html} from 'lit';
+import {customElement, property} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {  
+  @property()
+  num1 = 0; // 1
+  @property()
+  num2 = 0; // 2
+  @property({type: Number})
+  num3 = 0; // 3
+  
+  render() {
+    return html`
+      <p>num1: ${this.num1}</p>
+      <p>num2: ${this.num2}</p>
+      <p>num3: ${this.num3}</p>
+      <button @click=${this.plusTen}>10を足す</button>
+    `;
+  }
+  
+  private plusTen() { // 4
+    this.num1 = this.num1 + 10
+    this.num2 = this.num2 + 10
+    this.num3 = this.num3 + 10
+  }
+}
+
+## オプション attribute
+
+### index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"><!-- 今回は charset の指定-->
+  <!--  Playground の場合
+  <script type="module" src="./my-element.js"></script>
+  -->
+  <!-- Viteの場合　/src 配下、かつ .ts になる -->
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+<body>
+  <my-element
+    myinfo="マイインフォ"
+    my-message="マメッセージ"
+    >
+  </my-element>
+</body>
+</html>
+
+
+### my-element.ts
+
+import {LitElement, html} from 'lit';
+import {customElement, property} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {  
+  @property()
+  myInfo = ''; // 1
+
+  @property({attribute: 'my-message'})
+  myMessage = ''; // 2
+
+  render() {
+    return html`
+      <p>myInfo: ${this.myInfo}</p>
+      <p>myMessage: ${this.myMessage}</p>
+    `;
+  }
+}
+
+
+## 配列やオブジェクトのリアクティブについて
+
+### 【変更の検知されない】パターン
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+import {map} from 'lit/directives/map.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {    
+  @state()
+  private _fruits =  ['リンゴ', 'ミカン', 'バナナ']; // 1
+  render() {
+    return html`
+      <p>フルーツ一覧</p>
+      <ul>
+        ${map(this._fruits, (fruit) => html`
+           <li>${fruit}</li>
+        `)}
+      </ul>
+      <button @click=${this.addFruits}>追加</button>
+    `;
+  }
+  
+  private addFruits(){
+    this._fruits.push('イチゴ'); // 2
+  }
+}
+### 【変更の検知される】パターン
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+import {map} from 'lit/directives/map.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {    
+  @state()
+  private _fruits =  ['リンゴ', 'ミカン', 'バナナ']; // 1
+  render() {
+    return html`
+      <p>フルーツ一覧</p>
+      <ul>
+        ${map(this._fruits, (fruit) => html`
+           <li>${fruit}</li>
+        `)}
+      </ul>
+      <button @click=${this.addFruits}>追加</button>
+    `;
+  }
+  
+  private addFruits(){
+    const newFruits = [...this._fruits]; // 2
+    newFruits.push('イチゴ'); // 3
+    this._fruits = newFruits; // 4
+  }
+}
+
+
+## hasChanged
+
+### ●hasChanged()
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state({
+    hasChanged(newValue: string, oldValue: string) { // 1
+      console.log(`newValue: ${newValue}, oldValue: ${oldValue}`); // 2
+      return true; // 3
+    },
+  })
+  private _message = 'あいうえお';  
+  
+  render() {
+    return html`
+      <p>message: ${this._message}</p>
+      <input id="message" value=${this._message}>
+      <button @click=${this.updateMessage}>更新</button>
+    `;
+  }
+  
+  private updateMessage() { // 4
+     this._message = (this.renderRoot.querySelector('#message') as HTMLInputElement).value;
+  }  
+}
+
+### ●更新の分岐
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {    
+  @state({
+    hasChanged(newValue: string, oldValue: string) {
+      let isDoUpdate = false;
+      if(newValue !== oldValue && newValue.length <= 10){
+        isDoUpdate = true;
+      }     
+      return isDoUpdate;
+    },
+  })
+  private _message = 'あいうえお';  
+  
+  render() {
+    return html`
+      <p>message: ${this._message}</p>
+      <input id="message" size="50" value=${this._message}>
+      <button @click=${this.updateMessage}>更新</button>
+    `;
+  }
+  
+  private updateMessage() {
+     this._message = (this.renderRoot.querySelector('#message') as HTMLInputElement).value;
+  }  
+}
+
+# 第５章　イベント
+
+## clickイベント
+
+### ●clickイベント
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {  
+  @state()
+  private _count = 0;      
+  
+  render() {
+    return html`
+      <!-- 1 -->
+      <button @click=${this.countUp}>count: ${this._count}</button>
+    `;
+  }
+  
+  private countUp() { // 2
+    this._count = this._count + 1;
+  }  
+}
+
+## inputイベント
+
+### ●inputイベント
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _memo = '';  
+  
+  render() {
+    return html`
+      <p>memo: ${this._memo}</p>
+      <input @input=${this.changeMemo}> <!-- 1 -->
+    `;
+  }
+  
+  private changeMemo(e: Event) { // 2
+    this._memo = (e.target as HTMLInputElement).value;    
+  }
+}
+
+
+## changeイベント
+
+### ●changeイベント
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _isAgree = false;
+
+  render() {
+    return html`
+      <div>利用規約 … </div>
+      <hr>
+      <!-- 1 -->
+      <input type="checkbox" .checked=${this._isAgree}
+               @change=${this.changeAgree}>同意する
+        <button ?disabled=${!this._isAgree}>次へ</button>
+    `;
+  }
+  
+  changeAgree(e: Event) { // 2
+    this._isAgree = (e.target as HTMLInputElement).checked;
+  }
+}
+
+### ・プルダウン
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _color = 'red';
+
+  render() {
+    return html`
+      <div>色選択のvalue値: ${this._color}</div>
+      <hr>
+      <!-- 1 -->
+      <select @change=${this.updateColor}>
+        <option value="red">赤</option>
+        <option value="green">緑</option>
+        <option value="blue">青</option>
+      </select>
+    `;
+  }
+  
+  updateColor(e: Event) { // 2
+    this._color = (e.target as HTMLInputElement).value;
+  }
+}
+
+
+## focus/blurイベント
+
+### ●focusイベントとblurイベント
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _focusMessage = '';  
+  
+  render() {
+    return html`
+      <p>focusMessage: ${this._focusMessage}</p>
+      <input @focus=${this.doFocus} @blur=${this.doBlur}> <!-- 1 -->
+    `;
+  }
+  
+  doFocus() { // 2
+    this._focusMessage = '入力欄にフォーカスがされました';    
+  }
+
+  doBlur() { // 3
+    this._focusMessage = '入力欄からフォーカスが外れました';    
+  }
+}
+
+
+## @queryデコレーター
+
+### ●queryデコレーター
+
+import {LitElement, html} from 'lit';
+import {customElement, state, query} from 'lit/decorators.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {  
+  @query('input#message') // 2
+  inputmessage!: HTMLInputElement;
+  
+  @state()
+  private _message = '';
+  
+  render() {
+    return html`
+      <p>message: ${this._message}</p>
+      <input id="message" value=${this._message}>
+      <button @click=${this.updateMessage}>更新</button>
+    `;
+  }
+  
+  private updateMessage() {
+     this._message = this.inputmessage.value; // 3
+  }  
+}
+
+
+## @eventOptionsデコレーター
+
+### ●オプション指定
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {  
+  @state()
+  private _text = 'ここに表示される';
+  
+  render() {
+    return html`
+      <p>日時: ${this._text}</p>
+      <!-- 1 -->
+      <button @click=${{handleEvent: () => this.updateText(), once: true}}>日時を表示(1度のみ)</button>
+    `;
+  }
+  
+  private updateText() { // 2
+    this._text = new Date().toLocaleString();
+  }  
+}
+
+
+### ● @eventOptionsデコレーター
+
+import {LitElement, html} from 'lit';
+import {customElement, state, eventOptions} from 'lit/decorators.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {  
+  @state()
+  private _text = 'ここに表示される';
+  
+  render() {
+    return html`
+      <p>日時: ${this._text}</p>
+      <button @click=${this.updateText}>日時を表示(1度のみ)</button>
+    `;
+  }
+  // 2
+  @eventOptions({ once: true })
+  private updateText() {
+    this._text = new Date().toLocaleString();
+  }  
+}
+
+
+# 第６章　スロット
+
+## スロット 
+
+### index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"><!-- charset の指定-->
+  <!--  Playground の場合
+  <script type="module" src="./my-element.js"></script>
+  -->
+  <!-- Viteの場合　/src 配下、かつ .ts になる -->
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+<body>
+  <my-element>
+    <p>お知らせです！</p>
+  </my-element>
+</body>
+</html>
+
+### my-element.ts
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {    
+  render() {
+    return html`
+      <div>
+        <slot></slot>
+      </div>
+    `;
+  }
+}
+
+## 既定のコンテンツ
+
+### index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"> <!-- charset の指定-->
+  <!--  Playground の場合
+  <script type="module" src="./my-element.js"></script>
+  -->
+  <!-- Viteの場合　/src 配下、かつ .ts になる -->
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+<body>
+  <my-element></my-element> <!-- 1 -->
+  <hr>
+  <my-element> <!-- 2 -->
+    <p>お知らせです！</p>
+  </my-element>
+</body>
+</html>
+
+### my-element.ts
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {    
+  render() {
+    return html`
+      <div>
+        <slot>
+          <p>未登録</p> <!-- 1 -->
+        </slot>
+      </div>
+    `;
+  }
+}
+
+
+## 名前付きスロット
+
+### index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"> <!-- charset の指定-->
+  <!--  Playground の場合
+  <script type="module" src="./my-element.js"></script>
+  -->
+  <!-- Viteの場合　/src 配下、かつ .ts になる -->
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+
+<body>
+  <my-element>
+    <h3 slot="header">ヘッダー </h3>
+    <h4 slot="footer">フッター</h4>
+    <h4 slot="menu">コンポーネントで"menu"は呼んでないので表示されない</h4>
+
+    お知らせです１<br>
+    お知らせです２<br>
+    お知らせです３<br>
+</my-element>
+</body>
+</html>
+
+### my-element.ts
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {    
+  render() {
+    return html`
+        <slot name="header"></slot>
+        <slot></slot>
+        <slot name="footer"></slot>
+    `;
+  }
+}
+
+## スロットの要素を取得する
+
+### index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"> <!-- charset の指定-->
+  <!--  Playground の場合
+  <script type="module" src="./my-element.js"></script>
+  -->
+  <!-- Viteの場合　/src 配下、かつ .ts になる -->
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+<body>
+  <my-element>
+    <div slot="mydiv"> 段落の纏まり </div>
+    <a href="http://example.com">リンク</a>
+    コンテンツ１<br>
+    コンテンツ２<br>
+  </my-element>
+</body>
+</html>
+
+### my-element.ts
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _slotTagName = ''; // 1
+  
+  render() {
+    return html`
+      <slot name="mydiv"></slot>
+      <slot></slot>
+      <hr>
+      <div>スロットのタグ名一覧: ${this._slotTagName}</div> <!-- 2 -->
+      <button @click=${this.setSlotTagName}>表示する</button> <!-- 3 -->
+    `;
+  }
+
+  private setSlotTagName() {
+    let allTagName = '';
+    // NodeList を取得(shadowRootを使用している点に注目)
+    const slotNodeList = this.shadowRoot!.querySelectorAll('slot');
+    // NodeListなので、Arrayに変換してforEach
+    // 順々に スロット(HTMLSlotElement) を取得していきます。
+    Array.from(slotNodeList).forEach(function (slotElement) {
+       // スロットから要素の配列を取得
+       const elements = slotElement.assignedElements({flatten: true});
+       elements.forEach(function (element) {
+         if(element.tagName){
+           allTagName += `「${element.tagName}」`;
+         }
+       });
+    });
+    this._slotTagName = allTagName;
+  } 
+}
+
+
+# 第７章　ディレクティブ
+
+
+## classMap
+
+import {LitElement, html, css} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+import {classMap} from 'lit/directives/class-map.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  // 2
+  static styles = css`
+    .boldred {
+      color: red;
+      font-weight: bold;
+    }
+    .border{
+	  border: solid 1px black;
+    }
+  `;
+  // 3
+  @state()
+  private _isBoldred = false;
+  
+  @state()
+  private _isBorder = false;
+  
+  render() {
+    const classes = { // 4
+      boldred: this._isBoldred,
+      border: this._isBorder
+    };
+
+    return html`
+      <!-- 5 -->
+      <p class=${classMap(classes)}>CSSクラスを選択して下さい</p>
+
+      <input type="checkbox" .checked=${this._isBoldred}
+               @change=${this.updateBoldred}>太字の赤 
+        
+      <input type="checkbox" .checked=${this._isBorder}
+               @change=${this.updateBorder}>枠線
+    `;
+  }
+
+  updateBoldred(e: Event) { // 6
+    this._isBoldred = (e.target as HTMLInputElement).checked;
+  }
+ 
+  updateBorder(e: Event) { // 7
+    this._isBorder = (e.target as HTMLInputElement).checked;
+  }
+}
+
+## styleMap
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+import {styleMap} from 'lit/directives/style-map.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  // 2
+  @state()
+  private _color = 'black';
+  
+  @state()
+  private _isBold = false;
+
+  @state()
+  private _isItalic = false;
+  
+  render() {
+    const styles = { // 3
+      color: this._color,
+      fontWeight: this._isBold ? 'bold' : 'normal',
+      'font-style': this._isItalic ? 'italic' : 'normal'
+    };
+    return html`
+      <!-- 4 -->
+      <p style=${styleMap(styles)}>CSSスタイルを選択して下さい</p>
+
+      <select @change=${this.updateColor} name="color">
+        <option value="black">黒</option>
+        <option value="red">赤</option>
+        <option value="green">緑</option>
+        <option value="blue">青</option>
+      </select>
+        
+      <input type="checkbox" .checked=${this._isBold}
+               @change=${this.updateBold}>太字
+        
+       <input type="checkbox" .checked=${this._isItalic}
+                @change=${this.updateItalic}>斜め
+    `;
+  }
+  // 5
+  updateColor(e: Event) {
+    this._color = (e.target as HTMLInputElement).value;
+  }
+ 
+  updateBold(e: Event) {
+    this._isBold = (e.target as HTMLInputElement).checked;
+  }
+
+  updateItalic(e: Event) {
+    this._isItalic = (e.target as HTMLInputElement).checked;
+  }
+}
+
+
+## when
+
+### ●when
+
+#### ・二項式
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+import {when} from 'lit/directives/when.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _isShowHelp = false; // 2
+
+  render() {
+    return html`
+      <!-- 3 -->
+      ${when(this._isShowHelp, () => html`<div>ヘルプ画面</div><hr>`)}
+      <input type="checkbox" @change=${this.updateCheck}> ヘルプ表示
+      <div>本文</div>
+    `;
+  }
+  
+  updateCheck(e: Event) { // 4
+    this._isShowHelp = (e.target as HTMLInputElement).checked;
+  }
+}
+
+#### ・三項式
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+import {when} from 'lit/directives/when.js'; // 1
+// 2
+const japaneseView = () => html`<div>日本語のページ</div>`;
+const englishView = () => html`<div>英語のページ</div>`;
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _isEnglish = false; // 3
+  
+  render() {
+    return html`
+      <!-- 4 -->
+      ${when(this._isEnglish, englishView, japaneseView)}
+      <hr>
+      <input type="checkbox" @change=${this.updateCheck}> 英語にする
+    `;
+  }
+  
+  updateCheck(e: Event) { // 5
+    this._isEnglish = (e.target as HTMLInputElement).checked;
+  }
+}
+
+
+## choose
+
+import {LitElement, html} from 'lit';
+import {customElement, state, query} from 'lit/decorators.js';
+import {choose} from 'lit/directives/choose.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  
+  @state()
+  private _pagename = 'home'; // 2
+  
+  @query('input#pagename')
+  inputPagename!: HTMLInputElement;
+  
+  render() {
+    return html`
+      <!-- 3 -->
+      ${choose(this._pagename, [
+        ['home', () => html`<div>HOME</div>`],
+        ['about', () => html`<div>ABOUT</div>`],
+        ['contact', () => html`<div>CONTACT</div>`]
+      ],
+      () => html`<div>Not Found 404</div>`)}
+      <hr>
+      <p>home / about / contact</p>
+      <input id="pagename" .value=${this._pagename}>
+      <button @click=${this.updatePagename}>ページに行く</button><br>
+    `;
+  }
+  
+  updatePagename() { // 4
+    this._pagename = this.inputPagename.value;    
+  }
+}
+
+
+## map
+
+### ●map
+
+#### ・単純な配列
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+import {map} from 'lit/directives/map.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  colors = ['red', 'green','blue']; // 2
+
+  render() {
+    return html`   
+     <ul> <!-- 3 -->   
+       ${map(this.colors, (color) => html`<li>${color}</li>`)}
+     </ul>
+    `;
+  }
+}
+
+#### ・オブジェクトの配列
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+import {map} from 'lit/directives/map.js'; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  // 2
+  users = [ {uid: 1, uname: 'ユーザー１'},
+            {uid: 2, uname: 'ユーザー２'},
+            {uid: 3, uname: 'ユーザー３'} ];
+  render() {
+    return html`
+      <p>ユーザー一覧</p>
+      <ul>
+        <!-- 3 -->
+        ${map(this.users, (user) => html`
+           <li>${user.uname}
+             <button data-uid=${user.uid} @click=${this.alertUid}>ボタン</button>
+           </li>
+        `)}
+      </ul>
+    `;
+  }
+  
+  private alertUid(e: Event) { // 4
+    const uid = (e.target as HTMLInputElement).getAttribute('data-uid')!;
+    alert(uid)
+  }
+}
+
+#### ・インデックスの取得
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+import {map} from 'lit/directives/map.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+ @state() // 【１】
+ private _items = 
+      [ // idは一意なものにする
+        {id: 0, name: '要素１'},
+        {id: 1, name: '要素２'},
+        {id: 2, name: '要素３'}
+      ];
+  render() {
+    return html`
+     <ul> <!-- 【２】 -->
+       ${map(this._items, (item, index) => html`
+            <li>No.${index + 1}: <input type="checkbox">${item.name}</li>
+         `)}
+     </ul>
+     <button @click=${() => this.deleteItem()}>先頭の要素を削除</button> 
+    `;
+  }    
+     
+  private deleteItem(){ // 【３】
+      const newItems = [...this._items];
+      newItems.splice(0, 1);
+      this._items = newItems;
+  }
+}
+
+
+## repeat
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+// map と repeat のインポート
+import {map} from 'lit/directives/map.js'; 
+import {repeat} from 'lit/directives/repeat.js';
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+ @state()
+  private _items = 
+      [ // idは一意なものにする
+        {id: 0, name: '要素１'},
+        {id: 1, name: '要素２'},
+        {id: 2, name: '要素３'}
+      ];
+  render() {
+    return html`
+     <p>【１】 map</p>
+     <ul>
+       ${map(this._items, (item, index) => html`
+            <li>No.${index + 1}: <input type="checkbox">${item.name}</li>
+         `)}
+     </ul>
+     <p>【２】 repeat、DOM要素にKey指定無し</p>
+     <ul>
+        ${repeat(this._items, (item, index) => html`
+            <li>No.${index + 1}: <input type="checkbox">${item.name}</li>
+          `)}
+      </ul>
+      <p>【３】 repeat、DOM要素へのKey指定は全て空文字(一意でない)</p>
+      <ul>
+        ${repeat(this._items, (item) => '', (item, index) => html`
+            <li>No.${index + 1}: <input type="checkbox">${item.name}</li>
+          `)}
+      </ul>
+      <p>【４】 repeat、DOM要素へのKey指定はitem.id(一意である)</p>
+      <ul>
+        ${repeat(this._items, (item) => item.id, (item, index) => html`
+            <li>No.${index + 1}: <input type="checkbox">${item.name}</li>
+          `)}
+      </ul>
+      <button @click=${() => this.deleteItem()}>先頭の要素を削除</button> 
+    `;
+  }
+  
+  private deleteItem(){
+      const newItems = [...this._items];
+      newItems.splice(0, 1);
+      this._items = newItems;
+    }
+}
+
+
+## cache
+
+### ●cache
+
+#### 【cacheディレクティブを使わない例】
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+
+const otherView = () => html`otherView: <input value="otherView">`; // 1
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state() // 2
+  private _isShow = true;
+
+  render() {
+    return html`
+      <div>
+        ${this._isShow
+            ? otherView()
+            : '↓下のボタンでotherViewをレンダリング' }
+      </div>
+      <!-- 3 -->
+      <button @click=${()=>this._isShow = !this._isShow}>レンダリング切り替え</button>
+    `;
+  }
+}
+
+#### 【cacheディレクティブを使う例】
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+import {cache} from 'lit/directives/cache.js'; // cache のインポート
+
+const otherView = () => html`otherView: <input value="otherView">`;
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _isShow = true;
+
+  render() {
+    return html`
+      <div> <!-- cache はインポート済みとする -->
+        ${ cache(
+             this._isShow
+                ? otherView()
+                : '↓下のボタンでotherViewをレンダリング'
+            )  }
+      </div> 
+      <button @click=${()=>this._isShow = !this._isShow}>レンダリング切り替え</button>
+    `;
+  }
+}
+
+#### 【複数ビューの例】
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+import {cache} from 'lit/directives/cache.js';
+
+const otherView1 = () => html`otherView1: <input value="otherView1">`;
+const otherView2 = () => html`otherView2: <input value="otherView2">`;
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  @state()
+  private _isView1 = true;
+
+  render() {
+    return html`
+      <div> <!-- cache はインポート済みとする -->
+        ${ cache(
+             this._isView1
+                ? otherView1()
+                : otherView2()
+            )  }
+      </div>  
+      <button @click=${()=>this._isView1 = !this._isView1}>レンダリング切り替え</button>
+    `;
+  }
+}
+
+
+## guard
+
+### 【guardディレクティブを使わない例】
+
+import {LitElement, html} from 'lit';
+import {customElement, state, query} from 'lit/decorators.js';
+
+function heavyApi(url: string='') {  // 【２】 
+  const num = Math.floor( Math.random() * (999999 + 1 - 100000) ) + 100000 ;
+  return url + num;
+}
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  // 【１】 
+  @state()
+  private _memo = '';  
+
+  @state()
+  private _url = '';
+  
+  @query('input#url')
+  inputurl!: HTMLInputElement;
+
+  render() {
+    return html`
+      <p>memo: ${this._memo}</p>
+      <input @input=${this.changeMemo}>
+      <hr>
+      <p>url: ${this._url}</p>
+      <input id="url" .value=${this._url}>
+      <button @click=${this.updateUrl}>updateUrl</button><br>
+      <div>取得データ: ${heavyApi(this._url)}</div> <!-- 【３】 -->
+    `;
+  }
+  
+  changeMemo(e: Event) {
+    this._memo = (e.target as HTMLInputElement).value;    
+  }
+  
+  updateUrl() {
+    this._url = this.inputurl.value;    
+  }
+}
+
+
+### 【guardディレクティブを使う例】
+
+import {LitElement, html} from 'lit';
+import {customElement, state, query} from 'lit/decorators.js';
+import {guard} from 'lit/directives/guard.js'; // guard のインポート
+
+function heavyApi(url: string='') {
+  const num = Math.floor( Math.random() * (999999 + 1 - 100000) ) + 100000 ;
+  return url + num;
+}
+
+@customElement('my-element')
+export class MyElement extends LitElement {    
+  @state()
+  private _memo = '';  
+
+  @state()
+  private _url = '';
+  
+  @query('input#url')
+  inputurl!: HTMLInputElement;
+
+  render() {
+    return html`
+      <p>memo: ${this._memo}</p>
+      <input @input=${this.changeMemo}>
+      <hr>
+      <p>url: ${this._url}</p>
+      <input id="url" .value=${this._url}>
+      <button @click=${this.updateUrl}>updateUrl</button><br>
+      <!-- guardディレクティブで this._url に依存させる(guard はインポート済みとする) -->
+      <div>取得データ: ${guard([this._url], () => heavyApi(this._url))}</div>          
+    `;
+  }
+  
+  changeMemo(e: Event) {
+    this._memo = (e.target as HTMLInputElement).value;    
+  }
+  
+  updateUrl() {
+    this._url = this.inputurl.value;    
+  }
+}
+
+
+## templateContent
+
+### ●templateContent
+
+#### index.html
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"> <!-- charset の指定-->
+  <!--  Playground の場合
+  <script type="module" src="./my-element.js"></script>
+  -->
+  <!-- Viteの場合　/src 配下、かつ .ts になる -->
+  <script type="module" src="/src/my-element.ts"></script>
+</head>
+<body>
+  <!-- template要素 --> 
+  <template id="myTemplate">
+    <p>templateタグ</p>
+    <a href="https://example.com/">example.com</a>
+  </template>
+
+  <my-element></my-element>
+</body>
+</html>
+
+
+#### my-element.ts
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+import {templateContent} from 'lit/directives/template-content.js'; // 1
+
+const templateEl = document.querySelector('template#myTemplate') as HTMLTemplateElement; // 2
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    return  html`
+      <p>下記は、index.html内のtemplate要素</p>
+      <!-- 3 --> 
+      ${templateContent(templateEl)} `;
+  }
+}
+
+
+## unsafeHTML
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+import {unsafeHTML} from 'lit/directives/unsafe-html.js'; // 1
+
+const text = '<a href="https://example.com/">example.com</a>'; // 2
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    return html`
+      <p> ${text} </p> <!-- 3 -->
+      <p> ${unsafeHTML(text)} </p> <!-- 4 -->
+        `; 
+  }
+}
+
+
+## unsafeSVG
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+import {unsafeSVG} from 'lit/directives/unsafe-svg.js'; // 1
+
+const svg = '<rect x="10" y="10" width="50" height="50" fill="blue" />'; // 2
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  render() {
+    return html` <!-- 3 -->
+      <svg width="100" height="100" viewBox="0 0 200 200"
+        xmlns="http://www.w3.org/2000/svg" version="1.1">
+        ${unsafeSVG(svg)}
+      </svg>`;
+  }
+}
+
+
+## until
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+import {until} from 'lit/directives/until.js'; // until のインポート
+// 【１】
+const sleep = (ms:number) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function fetchData() { // 【２】
+  const res = '取得した写真データ一覧'
+  await sleep( 1000 );
+  return res;
+}
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+
+  @state()
+  private _data = fetchData(); // 【３】
+
+  render() {
+    return html`
+      <p>写真一覧</p> <!-- 【４】 -->
+      ${ until(this._data, html`<span>ロード中...</span>`) }
+    `;
+  }
+}
+
+
+## asyncAppend
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+// asyncAppend のインポート
+import {asyncAppend} from 'lit/directives/async-append.js';
+// スリープ処理用関数
+const sleep = (ms:number) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function* fetchDataAll() { // 【１】
+    await sleep( 1000 );
+    yield '外部サーバー１のデータ';
+    await sleep( 1000 );
+    yield '外部サーバー２のデータ';
+    await sleep( 1000 );
+    yield '外部サーバー３のデータ';
+}
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+
+  @state()
+  private _dataAll = fetchDataAll(); // 【２】
+
+  render() {
+    return html` <!-- 【３】 -->
+      <ul>${ asyncAppend(this._dataAll, (data) => html`<li>${data}</li>`) }</ul>
+      `;
+  }
+}
+
+
+## asyncReplace
+
+import {LitElement, html} from 'lit';
+import {customElement, state} from 'lit/decorators.js';
+// asyncReplace のインポート
+import {asyncReplace} from 'lit/directives/async-replace.js';
+// スリープ処理用関数
+const sleep = (ms:number) => new Promise(resolve => setTimeout(resolve, ms))
+
+async function* fetchDataAll() { // 【１】
+    await sleep( 1000 );
+    yield '外部サーバー１のデータ';
+    await sleep( 1000 );
+    yield '外部サーバー２のデータ';
+    await sleep( 1000 );
+    yield '外部サーバー３のデータ';
+}
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+
+  @state()
+  private _dataAll = fetchDataAll(); // 【２】
+
+  render() {
+    return html` <!-- 【３】 -->
+      <ul>${asyncReplace(this._dataAll, (data) => html`<li>${data}</li>`)}</ul>
+      `;
+  }
+}
+
+
+## カスタムディレクティブ
+
+### カスタムディレクティブ
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+import {Directive, directive} from 'lit/directive.js'; // 【１】
+
+class TruncStringDirective extends Directive { // 【２】
+  render(text: string) {
+    const res = text.length > 10 ? text.substr(0,10) + '…' : text
+    return res;
+  }
+}
+
+const truncString = directive(TruncStringDirective); // 【３】
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  message = "abcdefghijklmn"; // 【４】
+
+  render() {
+    return html`
+        <!-- 【５】 --> 
+        <p>Message: ${this.message}</p>
+        <p>Message: ${truncString(this.message)}</p>
+      `;
+  }
+}
+
+### ●テンプレートで返す
+
+import {LitElement, html} from 'lit';
+import {customElement} from 'lit/decorators.js';
+import {Directive, directive} from 'lit/directive.js';
+
+class TruncStringDirective extends Directive { // 【１】
+  render(text: string, isBold: boolean = false) {
+    const res = text.length > 10 ? text.substr(0,10) + '…' : text
+    if(isBold){
+      return html`<b>${res}</b>`;
+    }else{
+      return html`${res}`;      
+    }
+  }
+}
+
+const truncString = directive(TruncStringDirective);
+
+@customElement('my-element')
+export class MyElement extends LitElement {
+  message = "abcdefghijklmn";
+
+  render() {
+    return html`
+        <!-- 【２】 --> 
+        <p>Message: ${truncString(this.message)}</p>
+        <p>Message: ${truncString(this.message, true)}</p>
+      `;
+  }
+}
+
+
